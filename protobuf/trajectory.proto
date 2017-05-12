@@ -1,0 +1,15 @@
+package kddcup;
+
+message Trajectory {
+	optional string intersection = 1;
+	optional int32 tollgate = 2;
+	optional int32 vehicle = 3;
+	optional string start_time = 4;
+	message Trace {
+		optional int32 link = 1;
+		optional string enter_time = 2;
+		optional float travel_time = 3;
+	}
+	repeated Trace traces = 5;
+	optional float travel_time = 6;
+}
