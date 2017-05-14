@@ -1,0 +1,13 @@
+package kddcup;
+
+message Weather {
+	optional string date = 1;
+	optional int32 hour = 2;
+	optional float pressure = 3;
+	optional float sea_pressure = 4;
+	optional float wind_direction = 5;
+	optional float wind_speed = 6;
+	optional float temperature = 7;
+	optional float rel_humidity = 8;
+	optional float precipitation = 9;
+}

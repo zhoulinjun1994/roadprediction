@@ -12,4 +12,8 @@ message Trajectory {
 	}
 	repeated Trace traces = 5;
 	optional float travel_time = 6;
+	message Path {
+		repeated Trace traces = 1;
+	}
+	repeated Path paths = 7;
 }
