@@ -1,0 +1,5 @@
+*.pyc
+data/training
+data/testing_phase1
+data/zishen
+scripts
