@@ -114,42 +114,52 @@ def regression(trajectory_data, weather_data, output_file):
                 avg_travel_time = sum(v) / float(len(v))
                 print >> fout, ','.join([str(time_id), str(path_id), str(avg_travel_time)])
     # let us take 119118 as example
-    path_id = 116113
-    neighbor_path_id = [116113, 119118, 111103, 122122]
-    y, X = [], []
-    for time_id in travel_time:
-        if path_id not in travel_time[time_id]:
-            continue
-        current_time = parse_time(time_id)
-        last_time_id = encode_time(current_time - timedelta(minutes=20))
-        if last_time_id not in travel_time:
-            continue
-        flag = True
-        x = []
-        for neighbor in neighbor_path_id:
-            if neighbor not in travel_time[last_time_id]:
-                flag = False
-                break
+    # 7.19 - 10.10 for training
+    # the rest for test
+    topology = {1101108 : (110108,), 120117 : (120117, 110118,), \
+            119118: (119118, 110108), 122122 : (122122, 119118, 111103),
+            116113: (116113, 111103), 111103 : (111103, 115112, 105100),
+            105112 : (105112,), 105100: (105100)
+            }
+    for path_id, neighbor_path_id in topology.iteritems():
+        y_train, X_train = [], []
+        y_test, X_test = [], []
+        for time_id in travel_time:
+            if path_id not in travel_time[time_id]:
+                continue
+            current_time = parse_time(time_id)
+            last_time_id = encode_time(current_time - timedelta(minutes=20))
+            if last_time_id not in travel_time:
+                continue
+            flag = True
+            x = []
+            for neighbor in neighbor_path_id:
+                if neighbor not in travel_time[last_time_id]:
+                    flag = False
+                    break
+                else:
+                    v = travel_time[last_time_id][neighbor]
+                    x.append(sum(v) / float(len(v)))
+            if not flag:
+                continue
+            month = [0.] * 4
+            month[current_time.month-7] = 1.
+            x += month[:-1]
+            weekday = [0.] * 7
+            weekday[current_time.weekday()] = 1.
+            x += weekday[:-1]
+            hour = [0.] * 12
+            hour[current_time.hour/2] = 1.
+            x += hour[:-1]
+            v = travel_time[time_id][path_id]
+            if current_time < datetime(2016, 10, 11):
+                y_train.append(sum(v) / float(len(v)))
+                X_train.append(x)
             else:
-                v = travel_time[last_time_id][neighbor]
-                x.append(sum(v) / float(len(v)))
-        if not flag:
-            continue
-        month = [0.] * 4
-        month[current_time.month-7] = 1.
-        x += month[:-1]
-        weekday = [0.] * 7
-        weekday[current_time.weekday()] = 1.
-        x += weekday[:-1]
-        hour = [0.] * 24
-        hour[current_time.hour] = 1.
-        x += hour[:-1]
-        v = travel_time[time_id][path_id]
-        y.append(sum(v) / float(len(v)))
-        X.append(x)
-    with open("regression_116113.pkl", "wb") as fout:
-        pickle.dump((y, X), fout, protocol=pickle.HIGHEST_PROTOCOL)
-
+                y_test.append(sum(v) / float(len(v)))
+                X_test.append(x)
+        with open("regression_%d.pkl" % path_id, "wb") as fout:
+            pickle.dump((y, X), fout, protocol=pickle.HIGHEST_PROTOCOL)
 
 if __name__ == "__main__":
     data, weather_data = load_trajectory("../data/training/trajectories_training.csv", \
