@@ -63,8 +63,8 @@ def naive_knn(tr_time, te_time, route, slot, tr_start_time, tr_last_time, te_sta
 # Output form, result_data is a 6*42 matrix representing for 8:00-10:00, result_data2 is also 6*42 representing for 17:00-19:00    
 def printout(result_data, result_data2, filename):
     prefix = ['A,2', 'A,3', 'B,1', 'B,3', 'C,1', 'C,3']
-    STARTTIME = parse_time('2016-10-11 08:00:00')
-    STARTTIME2 = parse_time('2016-10-11 17:00:00')
+    STARTTIME = parse_time('2016-10-18 08:00:00')
+    STARTTIME2 = parse_time('2016-10-18 17:00:00')
     with open(filename, 'w') as f:
         print >>f, 'intersection_id,tollgate_id,time_window,avg_travel_time'
         for r in range(6):
@@ -97,8 +97,8 @@ def calc_MAPE(r1, r2, v1, v2):
     return MAPE / float(cnt)
 
 if __name__ == '__main__':
-    tr_time = np.load('../data/middle/crop_training_avg_aggr_travel_time_20min.npy')
-    te_time = np.load('../data/middle/validating_avg_aggr_travel_time_20min.npy')
+    tr_time = np.load('../data/middle/training_avg_aggr_travel_time_20min.npy')
+    te_time = np.load('../data/middle/testing_avg_aggr_travel_time_20min.npy')
     result_data = []
     result_data2 = []
     #T2 = naive_knn(tr_time, te_time, 0, 20*60, 6*60*60, 2*60*60, 8*60*60, 2*60*60)
@@ -109,12 +109,14 @@ if __name__ == '__main__':
     for i in range(6):
         T2 = naive_knn(tr_time, te_time, i, 20*60, 15*60*60, 2*60*60, 17*60*60, 2*60*60)
         result_data2.append(np.reshape(T2, len(T2) * len(T2[0])))
-    #printout(result_data, result_data2, 'naiveknn_val.csv')
+    printout(result_data, result_data2, 'naiveknn.csv')
+    '''
     val_data = np.concatenate((te_time[:, 24:30], te_time[:, 96:102], te_time[:, 168:174], te_time[:, 240:246], te_time[:, 312:318], te_time[:, 384:390], te_time[:, 456:462]), axis=1)
     val_data2 = np.concatenate((te_time[:, 51:57], te_time[:, 123:129], te_time[:, 195:201], te_time[:, 267:273], te_time[:, 339:345], te_time[:, 411:417], te_time[:, 483:489]), axis=1)
     #printout(val_data, val_data2, 'naiveknn_valval.csv')
     
     print calc_MAPE(result_data, result_data2, val_data, val_data2)
+    '''
     
     
     
