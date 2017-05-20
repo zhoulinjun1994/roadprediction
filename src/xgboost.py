@@ -6,6 +6,7 @@ import cPickle as pickle
 from sklearn.linear_model import LinearRegression, Ridge
 import numpy as np
 from possion import *
+import xgboost as xgb
 
 def generalize(topology, trajectory_data, weather_data):
     travel_time = {}
@@ -142,7 +143,8 @@ def regression(path_id, topology, travel_time, train_st, train_end, weather_info
                 X_train.append(x)
     print "train linear model for %d" % path_id
     #model = LinearRegression()
-    model = Ridge(alpha=1.)
+    #model = Ridge(alpha=1.)
+    model = xgb.XGBClassifier()
     model.fit(X_train, y_train)
     return model
 
@@ -244,8 +246,8 @@ if __name__ == "__main__":
         if path_id == 120117:
             continue
         model = regression(path_id, topology, travel_time,
-                '2016-07-19 00:00:00', '2016-10-17 23:59:59', weather_info)
-        for day in xrange(18, 25):
+                '2016-07-19 00:00:00', '2016-10-10 23:59:59', weather_info)
+        for day in xrange(11, 18):
             for hour in [8, 17]:
                 result.append(regression_test(model, path_id, topology,
                     travel_time, encode_time(datetime(2016, 10, day, hour, 0)),
@@ -253,4 +255,4 @@ if __name__ == "__main__":
                     encode_time(datetime(2016, 10, day, hour-1, 40)),
                     weather_info))
     output = concatenate_result(result)
-    print_out(output, "../result/knn_zhou_final.csv", "../result/linear_qiu_weather_final.csv")
+    print_out(output, "../result/naiveknn_val_prediction.csv", "../result/linear_qiu_weather_validation_xgboost.csv")
