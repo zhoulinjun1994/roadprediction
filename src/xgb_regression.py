@@ -7,6 +7,7 @@ from sklearn.linear_model import LinearRegression, Ridge
 import numpy as np
 from possion import *
 import xgboost as xgb
+from xgboost.sklearn import XGBRegressor
 
 def generalize(topology, trajectory_data, weather_data):
     travel_time = {}
@@ -144,8 +145,8 @@ def regression(path_id, topology, travel_time, train_st, train_end, weather_info
     print "train linear model for %d" % path_id
     #model = LinearRegression()
     #model = Ridge(alpha=1.)
-    model = xgb.XGBClassifier()
-    model.fit(X_train, y_train)
+    model = XGBRegressor(max_depth=3, gamma=1.0, n_estimators=500)
+    model.fit(np.array(X_train), np.array(y_train))
     return model
 
 def regression_test(model, path_id, topology, travel_time, test_st, test_end, encoded_time, weather_info):
@@ -166,7 +167,7 @@ def regression_test(model, path_id, topology, travel_time, test_st, test_end, en
                 time_test.append(time_id)
     if len(X_test) == 0:
         return (path_id, {})
-    y_pred = model.predict(X_test)
+    y_pred = model.predict(np.array(X_test))
     result = {}
     for i in xrange(len(X_test)):
         if time_test[i] not in result:
@@ -255,4 +256,4 @@ if __name__ == "__main__":
                     encode_time(datetime(2016, 10, day, hour-1, 40)),
                     weather_info))
     output = concatenate_result(result)
-    print_out(output, "../result/naiveknn_val_prediction.csv", "../result/linear_qiu_weather_validation_xgboost.csv")
+    print_out(output, "../result/naiveknn_val_prediction.csv", "../result/xgboost_weather_validation.csv")
