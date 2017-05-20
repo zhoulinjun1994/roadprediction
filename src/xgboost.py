@@ -32,19 +32,25 @@ def generalize(topology, trajectory_data, weather_data):
                     travel_time[time_id] = {}
                 for path_id in topology:
                     travel_time[time_id][path_id] = [0.0]
-    
+
     avg_travel_info = {}
     for time in travel_time:
         avg_travel_info[time] = {}
         for path in travel_time[time]:
             cnt = float(len(travel_time[time][path]))
             avg_travel_info[time][path] = [sum(travel_time[time][path]) / cnt, cnt]
-            
-    return travel_time, avg_travel_info
-    
+
+    weather_info = {}
+    for weather in weather_data:
+        current_time = datetime.strptime(weather.date, "%Y-%m-%d")
+        current_time = current_time.replace(hour=weather.hour)
+        time_id = encode_time(current_time)
+        weather_info[time_id] = weather
+    return travel_time, avg_travel_info, weather_info
+
 def empty_road_model(avg_travel_info, path_id, start_time, end_time, min_thres, max_thres):
     y_train, X_train = [], []
-    for time_id in avg_travel_info: 
+    for time_id in avg_travel_info:
         if path_id not in avg_travel_info[time_id]:
             continue
         current_time = parse_time(time_id)
@@ -60,7 +66,7 @@ def empty_road_model(avg_travel_info, path_id, start_time, end_time, min_thres, 
                 hour = [0.] * 12
                 hour[current_time.hour/2] = 1.
                 x += hour[:-1]
-                
+
                 y_train.append(avg_travel_info[time_id][path_id][0])
                 X_train.append(x)
     y_train = np.array(y_train)
@@ -73,8 +79,8 @@ def empty_road_model(avg_travel_info, path_id, start_time, end_time, min_thres, 
     print y_est[:20]
     print y_train[:20]
     return model
-    
-def feature_construct(neighbor_path_id, travel_time, last_time_id, current_time):
+
+def feature_construct(neighbor_path_id, travel_time, last_time_id, current_time, weather_info):
     flag = True
     x = []
     for neighbor in neighbor_path_id:
@@ -95,10 +101,27 @@ def feature_construct(neighbor_path_id, travel_time, last_time_id, current_time)
     hour = [0.] * 12
     hour[current_time.hour/2] = 1.
     x += hour[:-1]
+    #construct weather related features
+    weather_time = datetime(current_time.year, current_time.month,
+            current_time.day, current_time.hour/3*3)
+    weather_time_id= encode_time(weather_time)
+    if weather_time_id not in weather_info:
+        return False, x
+    weather = weather_info[weather_time_id]
+    if weather.wind_direction == 999017:
+        return False, x
+    wind_d = [0.] * 10
+    wind_d[int((weather.wind_direction-0.01) / 36)] = weather.wind_speed
+    x += wind_d
+    x.append(weather.pressure)
+    x.append(weather.sea_pressure)
+    x.append(weather.temperature)
+    x.append(weather.rel_humidity)
+    x.append(weather.precipitation)
     return flag, x
-            
 
-def regression(path_id, topology, travel_time, train_st, train_end):
+
+def regression(path_id, topology, travel_time, train_st, train_end, weather_info):
     mapes = []
     result = {}
     neighbor_path_id = topology[path_id]
@@ -111,9 +134,9 @@ def regression(path_id, topology, travel_time, train_st, train_end):
             last_time_id = encode_time(current_time - timedelta(minutes=20))
             if last_time_id not in travel_time:
                 continue
-            
+
             v = travel_time[time_id][path_id]
-            flag, x = feature_construct(neighbor_path_id, travel_time, last_time_id, current_time)
+            flag, x = feature_construct(neighbor_path_id, travel_time, last_time_id, current_time, weather_info)
             if flag:
                 y_train.append(sum(v) / float(len(v)))
                 X_train.append(x)
@@ -122,8 +145,8 @@ def regression(path_id, topology, travel_time, train_st, train_end):
     model = Ridge(alpha=1.)
     model.fit(X_train, y_train)
     return model
-    
-def regression_test(model, path_id, topology, travel_time, test_st, test_end, encoded_time):
+
+def regression_test(model, path_id, topology, travel_time, test_st, test_end, encoded_time, weather_info):
     X_test, time_test = [], []
     neighbor_path_id = topology[path_id]
     for time_id in travel_time:
@@ -134,8 +157,8 @@ def regression_test(model, path_id, topology, travel_time, test_st, test_end, en
             last_time_id = encoded_time
             if last_time_id not in travel_time:
                 continue
-            
-            flag, x = feature_construct(neighbor_path_id, travel_time, last_time_id, current_time)
+
+            flag, x = feature_construct(neighbor_path_id, travel_time, last_time_id, current_time, weather_info)
             if flag:
                 X_test.append(x)
                 time_test.append(time_id)
@@ -148,7 +171,7 @@ def regression_test(model, path_id, topology, travel_time, test_st, test_end, en
             result[time_test[i]] = {}
         result[time_test[i]][path_id] = y_pred[i]
     return (path_id, result)
-    
+
 def concatenate_result(result):
     output = {}
     for i in range(len(result)):
@@ -156,7 +179,7 @@ def concatenate_result(result):
             if time_id not in output:
                 output[time_id] = {}
             output[time_id][result[i][0]] = result[i][1][time_id][result[i][0]]
-    return output   
+    return output
 
 def print_out(result, sample_file, my_file):
     travel_time = {}
@@ -203,18 +226,31 @@ if __name__ == "__main__":
                 116113: (116113, 111103), 111103 : (111103, 115112, 105100),
                 115112 : (115112,), 105100: (105100,)
                 }
-    data, weather_data = load_trajectory(["../data/training/trajectories_training.csv", "../data/testing_phase1/trajectories_test1.csv"], \
-            "../data/training/weather_training.csv")
-    travel_time, avg_travel_info = generalize(topology, data, weather_data)
+    data, weather_data = load_trajectory(
+        [
+            "../data/training/trajectories_training.csv",
+            "../data/testing_phase1/trajectories_test1.csv"
+        ],
+        [
+            "../data/training/weather_training.csv",
+            "../data/testing_phase1/weather_test1.csv"
+        ])
+    travel_time, avg_travel_info, weather_info = \
+            generalize(topology, data, weather_data)
     #empty_road_model(avg_travel_info, 110108, '2016-07-19 00:00:00', '2016-10-17 23:59:59', 5, 10)
     #regression(topology, travel_time, "../result/knn_zhou_final.csv", "linear_qiu_final.csv")
     result = []
     for path_id in topology:
         if path_id == 120117:
             continue
-        model = regression(path_id, topology, travel_time, '2016-07-19 00:00:00', '2016-10-17 23:59:59')
+        model = regression(path_id, topology, travel_time,
+                '2016-07-19 00:00:00', '2016-10-17 23:59:59', weather_info)
         for day in xrange(18, 25):
             for hour in [8, 17]:
-                result.append(regression_test(model, path_id, topology, travel_time, encode_time(datetime(2016, 10, day, hour, 0)), encode_time(datetime(2016, 10, day, hour+2, 0)), encode_time(datetime(2016, 10, day, hour-1, 40))))
+                result.append(regression_test(model, path_id, topology,
+                    travel_time, encode_time(datetime(2016, 10, day, hour, 0)),
+                    encode_time(datetime(2016, 10, day, hour+2, 0)),
+                    encode_time(datetime(2016, 10, day, hour-1, 40)),
+                    weather_info))
     output = concatenate_result(result)
-    print_out(output, "../result/knn_zhou_final.csv", "linear_qiu_final.csv")
+    print_out(output, "../result/knn_zhou_final.csv", "../result/linear_qiu_weather_final.csv")

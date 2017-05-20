@@ -38,7 +38,7 @@ def encode_time_window(time_string):
     return "\"[%s,%s)\"" % (encode_time(start_time), encode_time(end_time))
 
 
-def load_trajectory(trajectory_paths, weather_path):
+def load_trajectory(trajectory_paths, weather_paths):
     data = []
     START_POINT = set([110, 120, 119, 122, 116, 111, 105, 115])
     for trajectory_path in trajectory_paths:
@@ -67,24 +67,27 @@ def load_trajectory(trajectory_paths, weather_path):
                 trajectory.travel_time = float(content[5])
                 data.append(trajectory)
     weather_data = []
-    with open(weather_path, "rb") as f:
-        nu = 0
-        for line in f:
-            nu += 1
-            if nu == 1:
-                continue
-            content = [item[1:-1] for item in line.strip().split(',')]
-            weather = weather_pb2.Weather()
-            weather.date = content[0]
-            weather.hour = int(content[1])
-            weather.pressure = float(content[2])
-            weather.sea_pressure = float(content[3])
-            weather.wind_direction = float(content[4])
-            weather.wind_speed = float(content[5])
-            weather.temperature = float(content[6])
-            weather.rel_humidity = float(content[7])
-            weather.precipitation = float(content[8])
-            weather_data.append(weather)
+    if type(weather_paths) == str:
+        weather_paths = [weather_paths]
+    for weather_path in weather_paths:
+        with open(weather_path, "rb") as f:
+            nu = 0
+            for line in f:
+                nu += 1
+                if nu == 1:
+                    continue
+                content = [item[1:-1] for item in line.strip().split(',')]
+                weather = weather_pb2.Weather()
+                weather.date = content[0]
+                weather.hour = int(content[1])
+                weather.pressure = float(content[2])
+                weather.sea_pressure = float(content[3])
+                weather.wind_direction = float(content[4])
+                weather.wind_speed = float(content[5])
+                weather.temperature = float(content[6])
+                weather.rel_humidity = float(content[7])
+                weather.precipitation = float(content[8])
+                weather_data.append(weather)
     return data, weather_data
 
 def poisson_parameter(data, win=1.0, prefix=""):
